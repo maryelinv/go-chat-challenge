@@ -1,6 +1,6 @@
 # Go Chat Challenge
 
-A simple real-time chat app built with Go and a browser frontend.
+A simple real-time chat app built with Go and a lightweight React frontend.
 
 ## Features
 - Real-time chat (WebSockets)
