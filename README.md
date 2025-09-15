@@ -32,4 +32,4 @@ A simple real-time chat app built with Go and a lightweight React frontend.
 
 ## License
 MIT
-└─ docker-compose.yml  # RabbitMQ service
+
