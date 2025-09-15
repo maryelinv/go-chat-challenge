@@ -28,7 +28,7 @@ func main() {
 		room, code := body[:i], body[i+1:]
 
 		quote, err := stooq.FetchQuote(code)
-		reply := fmt.Sprintf("could not fetch %s", strings.ToUpper(code))
+		reply := fmt.Sprintf("Could not fetch %s. Please verify the stock code is typed correctly.", strings.ToUpper(code))
 		if err == nil {
 			reply = fmt.Sprintf("%s quote is $%.2f per share", strings.ToUpper(code), quote)
 		}
