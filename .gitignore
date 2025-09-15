@@ -1,0 +1,32 @@
+
+# Database
+chat.db
+
+# Go build and cache
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+
+# Go modules
+vendor/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node/JS frontend (if added)
+node_modules/
+dist/
+build/
