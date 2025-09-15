@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Go Chat — Plain React (no TS, no bundler)</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    const COMMANDS = [
+      { cmd: "/stock=", label: "/stock=", desc: "Fetch a stock price. Example: /stock=aapl.us", insert: "/stock=aapl.us" },
+    ];
+
+    function clsx() { return Array.from(arguments).filter(Boolean).join(" "); }
+    function useLocalStorage(key, initial = "") {
+      const [val, setVal] = useState(() => localStorage.getItem(key) ?? initial);
+      useEffect(() => { localStorage.setItem(key, val ?? ""); }, [key, val]);
+      return [val, setVal];
+    }
+
+    function MessageItem({ msg, me }) {
+      const username = msg.Username ?? msg.username ?? "?";
+      const text = msg.Text ?? msg.text ?? "";
+      const createdAt = msg.CreatedAt ?? msg.createdAt ?? Date.now();
+      const t = new Date(createdAt);
+      return (
+        <div className={clsx("msg", me ? "me" : "", username === "stock-bot" ? "bot" : "")}>
+          <div className="avatar">{(username || "?").slice(0, 1).toUpperCase()}</div>
+          <div className="bubble">
+            <div className="meta">{t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} {username}</div>
+            <div>{text}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function GoChatApp() {
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [authMsg, setAuthMsg] = useState("");
+      const [authUser, setAuthUser] = useState("");
+      const [authPw, setAuthPw] = useState("");
+      const [newRoomOpen, setNewRoomOpen] = useState(false);
+      const [newRoomName, setNewRoomName] = useState("");
+      const [newRoomIsPrivate, setNewRoomIsPrivate] = useState(false);
+
+      const [username, setUsername] = useLocalStorage("gc-username", "");
+      const [rooms, setRooms] = useState(["general"]);
+      const [currentRoom, setCurrentRoom] = useState("general");
+      const [messages, setMessages] = useState([]);
+
+      const [input, setInput] = useState("");
+      const [menuOpen, setMenuOpen] = useState(false);
+      const [menuIndex, setMenuIndex] = useState(-1);
+
+      const msgsRef = useRef(null);
+      const inputRef = useRef(null);
+      const wsRef = useRef(null);
+
+      useEffect(() => { whoami(); }, []);
+      useEffect(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; }, [messages]);
+      useEffect(() => {
+        if (!isLoggedIn) return;
+        (async () => { await loadHistory(currentRoom); connectWS(currentRoom); })();
+        return () => { try { wsRef.current && wsRef.current.close(); } catch (e) { } };
+      }, [currentRoom, isLoggedIn]);
+
+      async function whoami() {
+        try {
+          const r = await fetch('/me');
+          if (!r.ok) throw new Error('unauthorized');
+          const me = await r.json();
+          const name = me.username || me.user || me.email || '';
+          setUsername(name);
+          setIsLoggedIn(true);
+          setAuthMsg('');
+          await loadRoomsForUser(name);
+          setCurrentRoom(prev => (rooms.includes(prev) ? prev : (rooms[0] || 'general')));
+        } catch (e) {
+          setIsLoggedIn(false); setMessages([]);
+        }
+      }
+
+      async function loadRoomsForUser(user) {
+        try {
+          const res = await fetch(`/rooms?user=${encodeURIComponent(user)}`);
+          if (!res.ok) return ["general"];
+
+          console.log(res, 'klk');
+
+          const rs = await res.json();
+
+          const list = Array.isArray(rs)
+            ? rs.map(r => (typeof r === "string" ? r : (r && r.name) || "")).filter(Boolean)
+            : ["general"];
+
+          const finalList = list.length ? list : ["general"];
+          setRooms(finalList);
+
+          if (!finalList.includes(currentRoom)) {
+            setCurrentRoom(finalList[0]);
+          }
+          return finalList;
+        } catch {
+          setRooms(["general"]);
+          if (currentRoom !== "general") setCurrentRoom("general");
+          return ["general"];
+        }
+      }
+
+
+      async function loadHistory(room) {
+        try {
+          const r = await fetch(`/messages/${room}`);
+          if (!r.ok) return;
+          const ms = await r.json();
+          setMessages(ms || []);
+        } catch (e) { }
+      }
+
+      function connectWS(room) {
+        try { wsRef.current && wsRef.current.close(); } catch (e) { }
+        const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + `/ws/${room}`;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+        ws.onmessage = (e) => {
+          if (!isLoggedIn) return;
+          try {
+            const env = JSON.parse(e.data);
+            const payload = env.payload || env.Payload || env;
+            const type = env.type || env.Type || 'message';
+            if (type === 'message' && payload) setMessages(prev => [...prev, payload]);
+          } catch (e) { }
+        };
+      }
+
+      async function createRoom(name, isPrivate = false) {
+        const safe = (name || "").trim().toLowerCase().replace(/\s+/g, "-");
+        if (!safe) return;
+        try {
+          await fetch("/rooms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: safe, is_private: !!isPrivate })
+          });
+        } catch { }
+        setRooms((prev) => Array.from(new Set([safe, ...prev])));
+        setCurrentRoom(safe);
+        setNewRoomOpen(false);
+        setNewRoomName("");
+        setNewRoomIsPrivate(false);
+      }
+
+
+      function submitNewRoom(e) {
+        e?.preventDefault();
+        createRoom(newRoomName, newRoomIsPrivate);
+      }
+
+      async function doLogin() {
+        const r = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authUser.trim(), password: authPw }) });
+        setAuthMsg(r.ok ? 'Logged in.' : 'Login failed.');
+        await whoami();
+      }
+      async function doRegister() {
+        const r = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authUser.trim(), password: authPw }) });
+        setAuthMsg(r.ok ? 'Registered & logged in.' : 'Registration failed.');
+        await whoami();
+      }
+      async function doLogout() {
+        await fetch('/logout', { method: 'POST' });
+        localStorage.removeItem('gc-username');
+        setUsername(''); setIsLoggedIn(false); setMessages([]);
+      }
+      async function send() {
+        const Username = (username || 'guest').trim();
+        const Text = input.trim(); if (!Text) return;
+        await fetch('/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Room: currentRoom, Username, Text }) });
+        setInput(''); setMenuOpen(false);
+      }
+
+      const filteredCommands = useMemo(() => {
+        const q = input.trim(); if (!q.startsWith('/')) return []; return COMMANDS.filter(c => c.cmd.startsWith(q) || c.label.startsWith(q));
+      }, [input]);
+      useEffect(() => { if (filteredCommands.length === 0) { setMenuOpen(false); setMenuIndex(-1); } else { setMenuOpen(true); setMenuIndex(0); } }, [filteredCommands.length]);
+      function pickActive(idx = menuIndex) {
+        const picked = filteredCommands[idx]; if (!picked) return; const value = picked.insert || picked.label; setInput(value); setMenuOpen(false);
+        requestAnimationFrame(() => { const el = inputRef.current; if (!el) return; if (picked.cmd === '/stock=') { const start = value.indexOf('=') + 1; const end = value.length; el.focus(); el.setSelectionRange(start, end); } else { el.focus(); } });
+      }
+      function onKeyDown(e) {
+        if (e.key === 'Enter' && !menuOpen) { e.preventDefault(); send(); }
+        if (menuOpen) {
+          const max = filteredCommands.length;
+          if (['ArrowDown', 'Tab'].includes(e.key)) { e.preventDefault(); setMenuIndex(i => (i + 1) % max); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setMenuIndex(i => (i - 1 + max) % max); }
+          else if (e.key === 'Enter') { e.preventDefault(); pickActive(); }
+          else if (e.key === 'Escape') { setMenuOpen(false); }
+        }
+      }
+
+      return (
+        <div>
+          <header>
+            <div className="container header-row">
+              <div className="title">
+                <div className="pill">Go Chat</div>
+                {
+                  isLoggedIn && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div>Room:&nbsp;</div>
+                    <select
+                      id="roomSel"
+                      value={currentRoom}
+                      className="room-select"
+                      onChange={(e) => setCurrentRoom(e.target.value)}
+                    >
+                      {(rooms.length ? rooms : ['general']).map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+
+                    {!newRoomOpen && (
+                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => setNewRoomOpen(true)}>
+                        + New
+                      </button>
+                    )}
+
+                    {newRoomOpen && (
+                      <form onSubmit={submitNewRoom} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <input
+                          className="auth-input"
+                          placeholder="room-name"
+                          autoFocus
+                          value={newRoomName}
+                          onChange={(e) => setNewRoomName(e.target.value)}
+                        />
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
+                          <input
+                            type="checkbox"
+                            checked={newRoomIsPrivate}
+                            onChange={(e) => setNewRoomIsPrivate(e.target.checked)}
+                          />
+                          Private
+                        </label>
+                        <button type="submit"
+                          className={clsx('btn btn-primary', !newRoomName ? 'disabled' : '')}
+                        >Create</button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => { setNewRoomOpen(false); setNewRoomName(""); setNewRoomIsPrivate(false); }}
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    )}
+
+                  </div>
+
+                }
+
+              </div>
+              <div className="actions">
+                {isLoggedIn && <span id="navUser" className="userchip">{username}</span>}
+                {isLoggedIn && <button id="btnLogoutTop" className="btn-logout" onClick={doLogout}>Logout</button>}
+              </div>
+            </div>
+          </header>
+
+          <main className="container">
+            <section id="msgs" ref={msgsRef} className={clsx('panel', !isLoggedIn ? 'hidden' : '')} aria-live="polite" aria-label="Messages">
+              {messages.map((m, i) => (
+                <MessageItem key={i} msg={m} me={(m.Username ?? m.username) === username} />
+              ))}
+            </section>
+
+            <div className="composer">
+              <div className="container">
+                {!isLoggedIn && (
+                  <div id="auth" className="auth-card" style={{ display: 'block' }}>
+                    <div className="auth-title">Sign in</div>
+                    <div className="auth-row" style={{ marginBottom: 8 }}>
+
+                      <input
+                        id="usernameAuth"
+                        className="auth-input"
+                        placeholder="username"
+                        autoComplete="username"
+                        value={authUser}
+                        onChange={(e) => setAuthUser(e.target.value)} />
+
+                      <input id="pw" className="auth-input" type="password" placeholder="password" autoComplete="current-password" value={authPw} onChange={(e) => setAuthPw(e.target.value)} />
+                    </div>
+                    <div className="auth-row auth-actions">
+                      <button id="btnLogin" className="btn btn-ghost" onClick={doLogin}>Login</button>
+
+                      <button id="btnRegister" className="btn btn-primary" onClick={doRegister}>Register</button>
+
+                      <span id="who" className="userchip" style={{ display: 'none', marginLeft: 'auto' }}></span>
+
+                      <button id="btnLogout" className="btn btn-ghost" style={{ display: 'none' }}>Logout</button>
+                    </div>
+                    <div id="authMsg" className="auth-hint">{authMsg}</div>
+                  </div>
+                )}
+
+                {
+                  isLoggedIn && <div className={clsx('bar', !isLoggedIn ? 'disabled' : '')} id="composerBar" style={{ position: 'relative' }}>
+                    <input
+                      id="username"
+                      readOnly
+                      placeholder="username"
+                      autoComplete="name"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className={!isLoggedIn ? 'hidden' : ''}
+                    />
+
+                    <input
+                      id="text"
+                      ref={inputRef}
+                      placeholder="Type a message…  or try  /stock=aapl.us"
+                      aria-haspopup="listbox"
+                      aria-expanded={menuOpen}
+                      aria-controls="cmdmenu" value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={onKeyDown}
+                      disabled={!isLoggedIn}
+                      onFocus={() => { if (input.startsWith('/')) setMenuOpen(true); }} />
+
+                    <button id="send" onClick={send} disabled={!isLoggedIn}>Send</button>
+
+                    <div id="cmdmenu" className={clsx('menu', menuOpen ? 'show' : '')} role="listbox" aria-label="Commands">
+                      {filteredCommands.map((it, i) => (
+                        <div key={i} className="item" role="option" aria-selected={i === menuIndex ? 'true' : 'false'} onMouseEnter={() => setMenuIndex(i)} onClick={() => pickActive(i)}>
+                          <span className="kbd">{it.label}</span>
+                          <div>
+                            <div><strong>{it.label}</strong></div>
+                            <div className="desc">{it.desc || ''}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<GoChatApp />);
+  </script>
+</body>
+
+</html>

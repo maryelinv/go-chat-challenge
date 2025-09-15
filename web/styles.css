@@ -1,0 +1,384 @@
+:root {
+  --bg: #fbfbff;
+  --panel: #ffffff;
+  --accent: #7c5cff;
+  --accent-2: #ff8fab;
+  --text: #222;
+  --muted: #6b7280;
+  --success: #10b981;
+  --danger: #ef4444;
+  --ring: rgba(124, 92, 255, .25);
+  --bot: #f0f4ff;
+}
+
+* {
+  box-sizing: border-box
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #f7f7ff, #fff);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto
+}
+
+header {
+  padding: 18px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: transparent;
+  backdrop-filter: saturate(140%) blur(4px)
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px
+}
+
+.userchip {
+  background: #f6f6ff;
+  border: 1px solid #ecebff;
+  color: #4c1d95;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700
+}
+
+.btn-logout {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #d9d9f2;
+  background: #fff;
+  cursor: pointer
+}
+
+.btn-logout:hover {
+  background: #f7f7ff
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  display: flex;
+  align-items: center;
+  gap: 10px
+}
+
+.pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px
+}
+
+.container {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 16px
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid #eef;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .06);
+  border-radius: 18px;
+  padding: 14px;
+  height: 65vh;
+  min-height: 360px;
+  overflow: auto
+}
+
+.msg {
+  display: flex;
+  gap: 10px;
+  margin: 8px 4px
+}
+
+.msg.me {
+  flex-direction: row-reverse;
+  justify-content: flex-end
+}
+
+.msg.me .bubble {
+  background: #fef6ff;
+  border-color: #ffe3f0;
+  margin-left: auto
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e9e7ff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #4c1d95
+}
+
+.bubble {
+  max-width: 70%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  position: relative;
+  background: #f7f7ff;
+  border: 1px solid #eee
+}
+
+.me .bubble {
+  background: #fef6ff;
+  border-color: #ffe3f0
+}
+
+.bot .bubble {
+  background: var(--bot);
+  border-color: #e6ecff
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 2px
+}
+
+.composer {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, transparent, #fff 40%);
+  padding: 14px 0
+}
+
+.bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e6e6f9;
+  border-radius: 999px;
+  padding: 8px;
+  box-shadow: 0 8px 18px rgba(124, 92, 255, .06)
+}
+
+input,
+button {
+  font: inherit
+}
+
+#username {
+  width: 160px;
+  padding: 10px 12px;
+  border: 0;
+  outline: none;
+  border-radius: 999px;
+  background: #f6f6ff
+}
+
+#text {
+  flex: 1;
+  padding: 10px 12px;
+  border: 0;
+  outline: none
+}
+
+#send {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer
+}
+
+#send:active {
+  transform: translateY(1px)
+}
+
+.menu {
+  position: absolute;
+  transform: translateY(-8px);
+  background: #fff;
+  border: 1px solid #e6e6f9;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, .10);
+  width: min(520px, 94vw);
+  max-height: 240px;
+  overflow: auto;
+  display: none;
+  z-index: 10
+}
+
+.menu.show {
+  display: block
+}
+
+.item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  align-items: start
+}
+
+.item:hover,
+.item[aria-selected="true"] {
+  background: #f7f4ff
+}
+
+.kbd {
+  background: #f3f3ff;
+  border: 1px solid #e6e6f9;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px
+}
+
+.desc {
+  color: var(--muted);
+  font-size: 13px
+}
+
+@media (max-width:640px) {
+  #username {
+    width: 120px
+  }
+
+  .bubble {
+    max-width: 80%
+  }
+
+  .panel {
+    height: 60vh
+  }
+}
+
+.bar.disabled,
+.btn.disabled {
+  opacity: .5;
+  cursor: not-allowed
+}
+
+.bar.disabled input,
+.bar.disabled button,
+.btn.disabled {
+  pointer-events: none
+}
+
+#username.hidden {
+  display: none
+}
+
+#msgs.hidden {
+  display: none
+}
+
+.auth-card {
+  background: #fff;
+  border: 1px solid #eef;
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .06);
+  margin: 8px 0 14px
+}
+
+.auth-title {
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin: 2px 2px 10px;
+}
+
+.auth-input {
+  padding: 4px 10px;
+  border: 1px solid #e6e6f9;
+  background: #f6f6ff;
+  border-radius: 999px;
+  outline: none;
+  transition: box-shadow .15s, border-color .15s, background .15s;
+  font-size: 16px;
+}
+
+.auth-input::placeholder {
+  color: #9aa0b5
+}
+
+.auth-input:focus {
+  background: #fff;
+  border-color: #dcdcf5;
+  box-shadow: 0 0 0 6px rgba(124, 92, 255, .08)
+}
+
+.btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #d9d9f2;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .05s, background .15s, box-shadow .15s;
+  font-size: 14px;
+}
+
+.btn:active {
+  transform: translateY(1px)
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgba(124, 92, 255, .16)
+}
+
+.btn-ghost:hover {
+  background: #f7f7ff
+}
+
+.auth-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center
+}
+
+.auth-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center
+}
+
+.auth-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px
+}
+
+.auth-row .auth-input {
+  flex: 1 1 280px;
+  min-width: 220px;
+  font-size: 16px;
+}
+
+.room-select {
+  font-weight: 700;
+  font-size: 14px;
+  border: 1px solid #e6e6f9;
+  background: #fff;
+  padding: 4px 10px;
+  border-radius: 100px;
+}
